@@ -499,6 +499,8 @@ def build_a_layer(layer_num):
         root.update()
         while state == 'R':
             root.update()
+    RedrawResin()
+    
     BtnPause.config(state=NORMAL)
 
     # Move a layer 

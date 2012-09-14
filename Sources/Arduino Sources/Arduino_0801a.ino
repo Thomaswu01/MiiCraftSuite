@@ -1,5 +1,5 @@
 /*
-    NVP Control Program 2012/07/31
+    NVP Control Program 2012/08/01
     
     Copyright (C) 2012  Paul Kang, Benson Hong, Young Optics
 
@@ -70,7 +70,7 @@ void setup()
 {
 /* Serial */  
   Serial.begin(9600);
-  Serial.println("2012-07-31a");
+  Serial.println("2012-08-01a");
 
 /* PinMode  */      
   pinMode(DirPin,   OUTPUT);      // sets the Direction pin as output
@@ -543,7 +543,7 @@ void resin_motor_o()
   MsTimer2::start();
   digitalWrite(Resin_motor_ph,HIGH);          //Raising resin motor enable
   digitalWrite(Resin_motor_en,HIGH);          //Raising resin motor enable
-  for (int i=0;i<50;i++){
+  for (int i=0;i<80;i++){
   delay(100);
   }
   digitalWrite(Resin_motor_en,LOW);
