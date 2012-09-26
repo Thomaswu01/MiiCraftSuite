@@ -1,5 +1,5 @@
 /*
-    NVP Control Program 2012/08/01
+    NVP Control Program 2012/09/19
     
     Copyright (C) 2012  Paul Kang, Benson Hong, Young Optics
 
@@ -18,10 +18,8 @@
 */
 
 /* stepping motor motion table */
-#include <D:\N_50.h>
-#include <D:\N_100.h>
-#include <D:\S_50.h>
-#include <D:\S_100.h>
+#include <D:\Normal.h>
+#include <D:\Slow.h>
 #include <MsTimer2.h>
 
 /* stepping motor control pins */
@@ -70,7 +68,7 @@ void setup()
 {
 /* Serial */  
   Serial.begin(9600);
-  Serial.println("2012-08-01a");
+  Serial.println("2012-09-19a");
 
 /* PinMode  */      
   pinMode(DirPin,   OUTPUT);      // sets the Direction pin as output
@@ -157,19 +155,19 @@ if (Serial.available() > 0) {
        step_up_pause();       
        break;       
 
-     case 'c':                             //micro step
+     case 'c':                             //micro step normal 50 micro
        step_micro_e1();
        break;
        
-     case 'd':                             //micro step
+     case 'd':                             //micro step normal 100 micro
        step_micro_e2();
        break;
        
-     case 'e':                             //micro step
+     case 'e':                             //micro step slow 50 micro
        step_micro_e3();
        break;
       
-     case 'f':                             //micro step
+     case 'f':                             //micro step slow 100 micro
        step_micro_e4();
        break;
        
@@ -381,27 +379,25 @@ void step_micro_e1()
        digitalWrite(ENAPin, HIGH);         // sets the Enable enable 
        digitalWrite(DirPin, HIGH);         // sets the Direction up
        for (int i=0;i<200;i++){
-         if (analogRead(top) > 500) 
-            break; 
-         k = nhalf[j];
-         digitalWrite(PulsePin, LOW);      // sets the pin off
-         delay(k);           // pauses for k miniseconds     
-         digitalWrite(PulsePin, HIGH);     // sets the pin off
-         delay(k);           // pauses for k miniseconds  
+         if (analogRead(top) > 500)
+            break;
+         k = normal[j];
+         digitalWrite(PulsePin, LOW);
+         delay(k);
+         digitalWrite(PulsePin, HIGH);
+         delay(k);
          j++;
-       }        
+       }
        delay(100);
        /* step down */
        digitalWrite(DirPin, LOW);          // sets the Direction down
        for (int i=0;i<190;i++){
          if (analogRead(top) > 500) 
-            break;
-         k = nhalf[j];           
-         digitalWrite(PulsePin, LOW);      // sets the pin off
-         delay(k);           // pauses for k miniseconds     
-         digitalWrite(PulsePin, HIGH);     // sets the pin off
-         delay(k);           // pauses for k miniseconds 
-         j++;
+            break;  
+         digitalWrite(PulsePin, LOW);      
+         delay(2);                
+         digitalWrite(PulsePin, HIGH);     
+         delay(2);
        } 
        Serial.println("OK");       
 } 
@@ -417,11 +413,11 @@ void step_micro_e2()
        for (int i=0;i<200;i++){
          if (analogRead(top) > 500) 
             break; 
-         k = nfull[j];
-         digitalWrite(PulsePin, LOW);      // sets the pin off
-         delay(k);           // pauses for k miniseconds     
-         digitalWrite(PulsePin, HIGH);     // sets the pin off
-         delay(k);           // pauses for k miniseconds  
+         k = normal[j];
+         digitalWrite(PulsePin, LOW);
+         delay(k);
+         digitalWrite(PulsePin, HIGH);
+         delay(k);
          j++;
        }        
        delay(100);
@@ -429,13 +425,11 @@ void step_micro_e2()
        digitalWrite(DirPin, LOW);          // sets the Direction down
        for (int i=0;i<180;i++){
          if (analogRead(top) > 500) 
-            break;
-         k = nfull[j];           
-         digitalWrite(PulsePin, LOW);      // sets the pin off
-         delay(k);           // pauses for k miniseconds     
-         digitalWrite(PulsePin, HIGH);     // sets the pin off
-         delay(k);           // pauses for k miniseconds 
-         j++;
+            break;           
+         digitalWrite(PulsePin, LOW);
+         delay(2);
+         digitalWrite(PulsePin, HIGH);
+         delay(2);
        } 
        Serial.println("OK");       
 } 
@@ -451,11 +445,11 @@ void step_micro_e3()
        for (int i=0;i<200;i++){
          if (analogRead(top) > 500) 
             break; 
-         k = shalf[j];
-         digitalWrite(PulsePin, LOW);      // sets the pin off
-         delay(k);           // pauses for k miniseconds     
-         digitalWrite(PulsePin, HIGH);     // sets the pin off
-         delay(k);           // pauses for k miniseconds  
+         k = slow[j];
+         digitalWrite(PulsePin, LOW);
+         delay(k);
+         digitalWrite(PulsePin, HIGH);
+         delay(k);
          j++;
        }        
        delay(100);
@@ -463,13 +457,11 @@ void step_micro_e3()
        digitalWrite(DirPin, LOW);          // sets the Direction down
        for (int i=0;i<190;i++){
          if (analogRead(top) > 500) 
-            break;
-         k = shalf[j];           
-         digitalWrite(PulsePin, LOW);      // sets the pin off
-         delay(k);           // pauses for k miniseconds     
-         digitalWrite(PulsePin, HIGH);     // sets the pin off
-         delay(k);           // pauses for k miniseconds 
-         j++;
+            break;          
+         digitalWrite(PulsePin, LOW);
+         delay(2);
+         digitalWrite(PulsePin, HIGH);
+         delay(2);
        } 
        Serial.println("OK");       
 } 
@@ -485,11 +477,11 @@ void step_micro_e4()
        for (int i=0;i<200;i++){
          if (analogRead(top) > 500) 
             break; 
-         k = sfull[j];
-         digitalWrite(PulsePin, LOW);      // sets the pin off
-         delay(k);           // pauses for k miniseconds     
-         digitalWrite(PulsePin, HIGH);     // sets the pin off
-         delay(k);           // pauses for k miniseconds
+         k = slow[j];
+         digitalWrite(PulsePin, LOW);
+         delay(k);
+         digitalWrite(PulsePin, HIGH);
+         delay(k);
          j++;
        }        
        delay(100);
@@ -497,13 +489,11 @@ void step_micro_e4()
        digitalWrite(DirPin, LOW);          // sets the Direction down
        for (int i=0;i<180;i++){
          if (analogRead(top) > 500) 
-            break;
-         k = sfull[j];           
-         digitalWrite(PulsePin, LOW);      // sets the pin off
-         delay(k);           // pauses for k miniseconds     
-         digitalWrite(PulsePin, HIGH);     // sets the pin off
-         delay(k);           // pauses for k miniseconds 
-         j++;
+            break;           
+         digitalWrite(PulsePin, LOW);
+         delay(2);
+         digitalWrite(PulsePin, HIGH);
+         delay(2);
        } 
        Serial.println("OK");       
 } 
@@ -517,7 +507,7 @@ void resin_motor_i()
   int resin_type = 0;
   digitalWrite(Resin_motor_ph,LOW);          //Raising resin motor enable
   
-  for (int i=0;i<15;i++){
+  for (int i=0;i<10;i++){
     Serial.println("g");
     if (analogRead(resin_empty) > 150){
       digitalWrite(Resin_motor_en,LOW);
@@ -526,7 +516,19 @@ void resin_motor_i()
     }
     digitalWrite(Resin_motor_en,HIGH);          //Raising resin motor enable
     delay(2000);
-  }   
+  } 
+  
+  for (int i=0;i<30;i++){
+    if (analogRead(resin_empty) > 150){
+      digitalWrite(Resin_motor_en,LOW);
+      resin_type = 1;
+      break;
+    }
+    digitalWrite(Resin_motor_en,HIGH);          //Raising resin motor enable
+    delay(1000);
+    digitalWrite(Resin_motor_en,LOW);
+    delay(1500);
+  }
   
   digitalWrite(Resin_motor_en,LOW);
   if (resin_type == 1){

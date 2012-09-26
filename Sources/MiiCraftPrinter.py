@@ -10,7 +10,7 @@ VER = "v0.4"
  v0.1    2012-May-4th  [P.K.] Initial version
  v0.2    2012-May-31th [T.W.] Improve performance
  v0.3    2012-Aug-15th [T.W.] solve fill resin funtion bug
- v0.4
+ v0.4    2012-Sep-21th [T.W.] Auto setup the USB display location, add tank clean function
 
     Part of the MiiCraft project
     Copyright (C) 2012  Thomas Wu, Paul Kang, Young Optics
@@ -38,7 +38,7 @@ from Tkinter import *
 from tkFileDialog   import askopenfilename
 
 # External libraries
-from PIL import Image, ImageTk, ImageChops
+from PIL import Image, ImageTk, ImageChops, ImageDraw
 import serial
 
 # Import from serial_emu.py in the current directory
@@ -46,7 +46,7 @@ from serial_emu import *
 
 class CmdDialog:
     def __init__(self, parent, VariableName, Message):
-        global ResinCuringTime, USBDisplayStartX, SerialTimeOut, PostCuringTime
+        global ResinCuringTime, SerialTimeOut, PostCuringTime
 
         top = self.top = Toplevel(parent)
 
@@ -59,7 +59,7 @@ class CmdDialog:
         b.pack(pady=5)
 
     def ok(self, VariableName):
-        global root, ResinCuringTime, USBDisplayStartX, SerialTimeOut, PostCuringTime
+        global root, ResinCuringTime, SerialTimeOut, PostCuringTime
         inputText = self.e.get()
         self.top.destroy()  
         if VariableName=="Test":
@@ -76,13 +76,6 @@ class CmdDialog:
             print "CmdDialog ResinCuringTime=", ResinCuringTime
             return        
 
-        if VariableName=="USBDisplayStartX":                           
-            USBDisplayStartX = int(cmd[0])
-            ConfigBtn.menu.entryconfig(2, label='USB Display Start X : '+str(USBDisplayStartX))            
-            print "CmdDialog USBDisplayStartX=", USBDisplayStartX
-            USBDisplay.geometry("%dx%d+%d+%d" % (865, 480, USBDisplayStartX, 0))
-            return
-
         if VariableName=="SerialTimeOut":                           
             SerialTimeOut = int(cmd[0])
             ConfigBtn.menu.entryconfig(3, label='SerialTimeOut :          '+str(SerialTimeOut))
@@ -94,22 +87,19 @@ class CmdDialog:
             ConfigBtn.menu.entryconfig(3, label='PostCuringTime :       '+str(PostCuringTime))
             PostCuringBtn.menu.entryconfig(1, label='Post Curing by '+str(PostCuringTime)+' seconds')
             print "CmdDialog PostCuringTime=", PostCuringTime
-            return          
+            return
+
+        if VariableName=="cleanprocess":
+            if ((cmd[0]=="y")|(cmd[0]=="Y")):
+                clean_process()
+            else:
+                print "N"
+            return
          
         return 
 
 
-'''
-def test():
-    root.geometry("%dx%d+%d+%d" % (300, 200, 100, 100))
-   
-def set_PageNum():
-    print textPageNum.get(1.0, END)
 
-def Reset_PageNum():
-    textPageNum.delete(1.0,END)
-    textPageNum.insert(END,'0')    
-'''
 ###### Menu Commands
 
 ########## File Commands    
@@ -191,6 +181,7 @@ def com_search_open():
                 ResinBtn.menu.entryconfig(2, state=NORMAL)
                 TestBtn.menu.entryconfig (1, state=NORMAL)
                 TestBtn.menu.entryconfig (2, state=NORMAL)
+                TestBtn.menu.entryconfig (3, state=NORMAL)
                 PostCuringBtn.menu.entryconfig(1, state=NORMAL)
                 
                 if VaildIdxLoaded: EnableInitControlBtns()
@@ -236,6 +227,7 @@ for i in COMList:
                     ResinBtn.menu.entryconfig(2, state=NORMAL)
                     TestBtn.menu.entryconfig (1, state=NORMAL)
                     TestBtn.menu.entryconfig (2, state=NORMAL)
+                    TestBtn.menu.entryconfig (3, state=NORMAL)
                     PostCuringBtn.menu.entryconfig(1, state=NORMAL)
 
                     
@@ -283,6 +275,7 @@ def close_serial():
         ResinBtn.menu.entryconfig(2, state=DISABLED)
         TestBtn.menu.entryconfig (1, state=DISABLED)
         TestBtn.menu.entryconfig (2, state=DISABLED)
+        TestBtn.menu.entryconfig (3, state=DISABLED)
         PostCuringBtn.menu.entryconfig(1, state=DISABLED)
         DisableAllControlBtns()
         
@@ -499,7 +492,7 @@ def build_a_layer(layer_num):
         root.update()
         while state == 'R':
             root.update()
-    RedrawResin()
+    
     
     BtnPause.config(state=NORMAL)
 
@@ -693,6 +686,7 @@ def ControlPrint():
         root.update()
         while state == 'R':
             root.update()
+    RedrawResin()
 
     BtnPrint.config(state=DISABLED)
     BtnStop.config(state=NORMAL)
@@ -769,7 +763,9 @@ def ControlPrint():
     else :
         StatusText.set("Processing broken by Stop")
         root.update()
-        EnableInitControlBtns()  
+        EnableInitControlBtns()
+
+    RedrawResin()
     
 def ControlPause():
     global PrintPause, PrintStop, root, state
@@ -803,6 +799,7 @@ def ControlStop():
         print "Abort print from ", state
         ser.write('t')
         ControlInit()
+        RedrawResin()
         return False
         
 
@@ -906,8 +903,8 @@ def SettingThickness():
 
 def USBShow(imageTk):
     panel.configure(image = imageTk)
-    #panel.image = image_tk    
     return
+
 
 def testDialog():
     global root
@@ -916,38 +913,34 @@ def testDialog():
 
 def ResinCuringTimeDialog():
     global root
-    d = CmdDialog(root, "ResinCuringTime", "Input ResinCuringTime")
-    root.wait_window(d.top)
-
-def USBDisplayStartXDialog():
-    global root
-    d = CmdDialog(root, "USBDisplayStartX", "Input USBDisplayStartX")
+    d = CmdDialog(root, "ResinCuringTime", "Input ' Single' layer Resin Curing Time")
     root.wait_window(d.top)
 
 def SerialTimeOutDialog():
     global root
-    d = CmdDialog(root, "SerialTimeOut", "Input SerialTimeOut")
+    d = CmdDialog(root, "SerialTimeOut", "Input Serial Time Out")
     root.wait_window(d.top)      
 
 def PostCuringTimeDialog():
     global root
-    d = CmdDialog(root, "PostCuringTime", "Input PostCuringTime")
-    root.wait_window(d.top) 
+    d = CmdDialog(root, "PostCuringTime", "Input Model Post Curing Time")
+    root.wait_window(d.top)
+
+def clean_processDialog():
+    global root
+    d = CmdDialog(root, "cleanprocess", "Start Tank clean process.( Y / N )")
+    root.wait_window(d.top)
+  
     
 def ReadIni():
-    global ResinCuringTime, USBDisplayStartX, SerialTimeOut, PostCuringTime
+    global ResinCuringTime, SerialTimeOut, PostCuringTime, root
     try:
-        #f_ini = open("NVP.ini","r")
         f_ini = open("MiiCraftSuite.ini","r")
         readLines = f_ini.readlines()
         for i in readLines:          
             if 'ResinCuringTime' in i:
                 parameters = i.split()
                 ResinCuringTime = float(parameters[1])
-                continue
-            if 'USBDisplayStartX' in i:
-                parameters = i.split()
-                USBDisplayStartX = int(parameters[1])            
                 continue
             if 'SerialTimeOut' in i:
                 parameters = i.split()
@@ -959,7 +952,7 @@ def ReadIni():
                 continue              
         f_ini.close()
     except IOError, e:
-        print e    
+        print e
     
 def PostCuring():
     global root, ser, state, PostCuringTime, PrintStop
@@ -967,7 +960,7 @@ def PostCuring():
     send_a_cmd(PostUVOn, PostUVOnMsg)
 
     state = 'K'
-    #send_a_cmd(PostCure, PostCureMsg)
+
     ser.write('k')
 
     BtnInit.config(state=DISABLED)
@@ -993,7 +986,7 @@ def PostCuring():
     while ( i < PostCuringTime):
         root.update()
         i = i + 0.1
-#        print "PostCuring", i, PostCuringTime
+
         time.sleep(0.1)
         j=PostCuringTime-i+1
         StatusText.set("Post Curing complete in "+str(int(j))+" seconds")
@@ -1027,7 +1020,6 @@ def PostCuring():
     root.update()
     state = '0'
     
-#    ser.readline()
     return
     
 def not_implemented_yet():
@@ -1036,11 +1028,85 @@ def not_implemented_yet():
     print "not_implemented_yet"
     return
 
+def ShowResolution():
+    global screen_width
+    screen_width = root.winfo_screenwidth()
+    print screen_width
+    return
+
+def clean_process():
+    
+    image_clean = Image.new("RGB",(768,480))
+    image_clean_panel = Image.new("RGB",(864,480))
+    draw_clean = ImageDraw.Draw(image_clean)
+    draw_clean.rectangle([0,0,768,480], fill=(200,255,200))
+
+    draw_clean_panel = ImageDraw.Draw(image_clean_panel)
+    draw_clean_panel.rectangle([0,0,768,480], fill=(255,255,255))
+
+    image_tk         = ImageTk.PhotoImage(image_clean_panel)
+    image_preview    = image_clean.resize((432,270))
+    image_preview_tk = ImageTk.PhotoImage(image_preview)
+    PreViewImage.configure(image= image_preview_tk)
+    PreViewImage.image = image_preview_tk
+
+    PreviewName.set("Clean Pattern")
+
+    USBShow(image_tk)
+    root.update()
+
+    DisableAllControlBtns()
+
+    FillResin()
+    if state == 'R':
+        BtnInit.config(state=NORMAL)
+        Initiate_updown.set("Continue")
+        root.update()
+        while state == 'R':
+            root.update()
+    
+    DisableAllControlBtns()
+
+    curing_cycle = 10
+
+    for i in range(curing_cycle):
+        
+        timestart = time.time()
+        timeend = time.time()
+        clean_time = timeend-timestart
+        
+        send_a_cmd(LEOn, "LED on for clean process")
+        while (clean_time < 20):
+            time.sleep(0.1)
+            timeend = time.time()
+            clean_time = timeend-timestart
+            StatusText.set("Curing complete in "+str(int(25*curing_cycle-25*(i+1)+(26-clean_time)))+" seconds")
+            root.update()
+        send_a_cmd(LEOff, "LED off for clean process")
+        
+        timestart = time.time()
+        timeend = time.time()
+        clean_time = timeend-timestart
+        while (clean_time < 5):
+            time.sleep(0.1)
+            timeend = time.time()
+            clean_time = timeend-timestart
+            StatusText.set("Curing complete in "+str(int(25*curing_cycle-25*(i+1)+(6-clean_time)))+" seconds")
+            root.update()        
+    
+    RedrawResin()
+    StatusText.set("Clean Process Done!")
+
+    DisableAllControlBtns()
+
+    return
+
+    
+
 global ser, SerialTimeOut
 global ResinCuringTime, USBDisplayStartX, PostCuringTime
 # defaults
 ResinCuringTime  = 5     # 5 seconds
-USBDisplayStartX = 1366  # Assume the primary screen is 1366x768, eg. HP 8440p
 PostCuringTime   = 10
 SerialTimeOut    = 1
     
@@ -1060,29 +1126,22 @@ PrintPause     = False
 PrintStop      = False
 
 
-
-
 global root, imageBlank
 
 ReadIni()
-print "ResinCuringTime:",  ResinCuringTime
-print "USBDisplayStartX:", USBDisplayStartX
-print "SerialTimeOut",     SerialTimeOut
-print "PostCuringTime",    PostCuringTime
 
 root = Tk()
 root.title("MiiCraftPrinter " + VER)
-#root.overrideredirect(1)
-#root.geometry("%dx%d+%d+%d" % (880, 800, 100, 100))
 root.resizable(0,0)
-#root.protocol("WM_DELETE_WINDOW","pass")
 root.protocol("WM_DELETE_WINDOW",my_quit)
 
 # USB Display ###########################################
-# 8440p LCD is 1366x768, the ASUS 22" monitor is 1680x1050
 # USB Display is 860x480
 USBDisplay = Toplevel()
 USBDisplay.overrideredirect(1)
+
+M_screen_width = root.winfo_screenwidth()
+USBDisplayStartX = M_screen_width-1
 
 USBDisplay.geometry("%dx%d+%d+%d" % (865, 480, USBDisplayStartX, 0))
 
@@ -1091,7 +1150,14 @@ imageBlank_tk  = ImageTk.PhotoImage(imageBlank)
 
 panel = Label(USBDisplay, image=imageBlank_tk)
 panel.pack(side='top', fill='both', expand='yes')
+
 #########################################################
+
+print "ResinCuringTime:",  ResinCuringTime
+print "USBDisplayStartX:", USBDisplayStartX
+print "SerialTimeOut",     SerialTimeOut
+print "PostCuringTime",    PostCuringTime
+
 
 PreviewName    = StringVar()
 CurrentDir     = StringVar()
@@ -1149,7 +1215,6 @@ ConfigBtn = Menubutton(mBar, text='Config')
 ConfigBtn.pack(side=LEFT, padx="2m")
 ConfigBtn.menu = Menu(ConfigBtn)
 ConfigBtn.menu.add_command(label='Resin Curing Time :   '+str(ResinCuringTime),  command = ResinCuringTimeDialog)
-ConfigBtn.menu.add_command(label='USB Display Start X : '+str(USBDisplayStartX), command = USBDisplayStartXDialog)
 ConfigBtn.menu.add_command(label='Post Curing Time :     '+str(PostCuringTime), command = PostCuringTimeDialog)
 ConfigBtn.menu.add_command(label='SerialTimeOut :          '+str(SerialTimeOut), command = SerialTimeOutDialog)
 ConfigBtn['menu'] = ConfigBtn.menu
@@ -1176,9 +1241,11 @@ TestBtn.pack(side=LEFT, padx="2m")
 TestBtn.menu = Menu(TestBtn)
 TestBtn.menu.add_command(label='Test a command',   command=testDialog)
 TestBtn.menu.add_command(label='Read a line in',    command=not_implemented_yet)
+TestBtn.menu.add_command(label='Start clean process',    command=clean_processDialog)
 TestBtn['menu'] = TestBtn.menu
 TestBtn.menu.entryconfig(1, state=DISABLED)
 TestBtn.menu.entryconfig(2, state=DISABLED)
+TestBtn.menu.entryconfig(3, state=DISABLED)
 
 f = Frame(root, width=461, height=616)
 
