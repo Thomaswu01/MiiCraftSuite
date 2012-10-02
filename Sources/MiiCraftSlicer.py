@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-VER = "v0.4"
+VER = "v0.6"
 '''
  MiiCraft Slicer 
  v0.1    2012-Apr-22 Initial version
@@ -27,6 +27,13 @@ VER = "v0.4"
          1. Correct the image size of mogrify to 768x480
          2. Sliced image numbering starts from 2000 instead 1000 before
          
+         2012-Aug-9th
+         1. [Bug Fix] MiiCraftSlicer.py     - Correct the image size of mogrify to 768x480
+         2. [Improve] MiiCraftSlicer.py     - Sliced image numbering starts from 2000 instead 1000 before
+
+ v0.6    2012-Aug=26th
+         1. [Improve] MiiCraftSlicer.py     - Add base option
+          
  Part of the MiiCraft project
  Copyright(c) 2012 Paul Kang
 
@@ -54,10 +61,48 @@ from   tkMessageBox   import *
 from   tkColorChooser import askcolor              
 from   tkFileDialog   import askopenfilename
 
-import Image, ImageChops
+import Image, ImageChops, ImageDraw, ImageMath
 
 DebugMessage    = False
 
+#class InputDialog:
+#    def __init__(self, parent, VariableName, Message):
+#        global AddBase, BaseLayers
+#        top = self.top = Toplevel(parent)    
+#        Label(top, text=Message, width=25, anchor=W).grid(row=0, column=0, columnspan=2, sticky=W, padx=10,pady=5)
+#        Label(top, text="Base Layers", anchor=W).grid(row=1, column=0, sticky=W, padx=10,pady=5)
+#
+#        BaseLayersVarStr = StringVar()
+#        
+#        self.e = Entry(top, textvariable=BaseLayersVarStr, width=8)
+#        self.e.grid(row=1, column=1, sticky=W, padx=10,pady=5)
+#        
+#        BaseLayersVarStr.set(str(BaseLayers))
+#
+#        bOk = Button(top, text="Yes", width=8, command=lambda: self.yes(VariableName)).grid(row=2, column=0, sticky=W, padx=10,pady=5)
+#        bCancel = Button(top, text="No", width=8, command=lambda: self.no(VariableName)).grid(row=2, column=1, sticky=W, padx=10,pady=5)
+#        AddBase = True
+#        
+#    def yes(self, VariableName):
+#        global BaseLayers
+#        inputText = self.e.get()
+#        self.top.destroy()  
+#        cmd = inputText.split()
+#        BaseLayers = int(cmd[0])
+#        print "BaseLayers is", BaseLayers                 
+#
+#    def no(self, VariableName):
+#        global AddBase
+#        inputText = self.e.get()
+#        self.top.destroy()  
+#        print "Not to add Base"  
+#        AddBase = False          
+              
+#def BaseDialog():
+#    global root
+#    d = InputDialog(root, "BaseLayers", "Recommend to add the Base.")
+#    root.wait_window(d.top)
+        
 class SettingsDialog:
     VarName =""
     def __init__(self, parent, LabelText, VarStr):
@@ -150,7 +195,7 @@ def ReadIni(): # Read and Parse the INI file
     global LayerThickness, OutputPath
     global carve_csvFile, XScale, YScale, ZScale
     global PixelPerMillimeter_X, PixelPerMillimeter_Y
-    global UniformityCorrect, UniformityCorrectFile
+#    global UniformityCorrect, UniformityCorrectFile
     global DelSVG, GenIdx
     
     iniFileName     = 'miicraftsuite.ini'
@@ -211,7 +256,7 @@ def ReadIni(): # Read and Parse the INI file
     # Read the next line from the INI file, it specifies the output path 
     LineRead = iniFile.readline()
     OutputPath = LineRead.split()[1]
-    print "OutputPath in MiiCraftSuite.ini", OutputPath
+#    print "OutputPath in MiiCraftSuite.ini", OutputPath
     if not os.path.isdir(OutputPath):
         os.system('mkdir '+ OutputPath)
                 
@@ -246,10 +291,10 @@ def ReadIni(): # Read and Parse the INI file
     LineRead = iniFile.readline()
     PixelPerMillimeter_Y = float(LineRead.split()[1]) 
     
-    # Read the next line from the INI file, it specifies the Uniformity Correct File               
-    LineRead = iniFile.readline()
-    UniformityCorrect     = LineRead.split()[1]
-    UniformityCorrectFile = LineRead.split()[2]    
+#    # Read the next line from the INI file, it specifies the Uniformity Correct File               
+#    LineRead = iniFile.readline()
+#    UniformityCorrect     = LineRead.split()[1]
+#    UniformityCorrectFile = LineRead.split()[2]    
 
     # Read the next line from the INI file, it specifies if delete SVG files after slicing              
     LineRead = iniFile.readline()
@@ -338,17 +383,19 @@ def Slice():
     global XScale, YScale, PixelPerMillimeter_X, PixelPerMillimeter_Y
     global DelSVG
     
+    # Dialog for adding base  
+#    BaseDialog()
+    
     CWD = os.getcwd()       # save the current working directory to CWD
-    #OutputPath = os.environ['HOMEDRIVE']+os.environ['HOMEPATH']+"\\.miicraft\\output\\" 
+    # OutputPath = os.environ['HOMEDRIVE']+os.environ['HOMEPATH']+"\\.miicraft\\output\\" 
     os.chdir(OutputPath)    # change to the output directory  
-
-
     
     # Check if STL File is valid, return False if not.
     if STLFileName =='NOVALID':
         STLFileNameStr.set("  No STL file Selected")
         StatusStr.set ("Invalid STL file name!")
         print 'Invalis STL File'
+        os.chdir(CWD)
         return False
         
     # Retrieving Filename from Path
@@ -356,14 +403,14 @@ def Slice():
     stl_file_name = fileSplit[len(fileSplit)-1]
     
     
-    print 'ccc', stl_file_name[0:len(stl_file_name)-4]
-
+    print 'Model name:', stl_file_name[0:len(stl_file_name)-4]
+    
     FileputPath = str(".\\"+stl_file_name[0:len(stl_file_name)-4]+"\\")
-    print FileputPath
-    print OutputPath
+#    print FileputPath
+#    print OutputPath
+    print 'File path:', str(OutputPath+stl_file_name[0:len(stl_file_name)-4]+"\\")
     os.system('mkdir '+ FileputPath)
-    os.chdir(FileputPath)
-
+    os.chdir(FileputPath)    
             
     # Use Skeinforge to Slice the model to the Skeinforge SVG file
     StatusStr.set("  Slicing with Skeinforge ....")
@@ -425,8 +472,14 @@ def Slice():
         print LayerDataItems[0], LayerDataItems[1], "fill='#000000' fill-rule='evenodd' stroke='#000000' stroke-width='0px'>"   
     
     # Process each Layer data to an indivisual SVG file    
-    for i in range(TotalLayers):     
-        OutSVGFileName = stl_file_name[0:len(stl_file_name)-4]+str(2000+i).zfill(4)+".svg"
+    for i in range(TotalLayers):   
+#        if AddBase:
+#            OutSVGFileName = stl_file_name[0:len(stl_file_name)-4]+str(2000+i+BaseLayers).zfill(4)+".svg"
+#        else:  
+#            OutSVGFileName = stl_file_name[0:len(stl_file_name)-4]+str(2000+i).zfill(4)+".svg"
+      
+        OutSVGFileName = stl_file_name[0:len(stl_file_name)-4]+str(2000+i-BaseLayers).zfill(4)+".svg"  #new add
+        
         StatusStr.set('  Generating '+OutSVGFileName)
         root.update()
         OutFile = open(OutSVGFileName, 'w')
@@ -477,6 +530,7 @@ def Slice():
     if DelSVG == 'True':
         os.system('del *.svg')    
 
+    '''
     if UniformityCorrect =='True':
         im_filter = Image.open("CorrectRGB_MASK.png")# Read the Uniformity Correction Image 
         StatusStr.set("  Uniformity Correcting ...")
@@ -491,7 +545,8 @@ def Slice():
     
         StatusStr.set("  Uniformity Correcting Done!")
         root.update()    
-
+    '''
+        
     # Generate Index File
     if GenIdx == 'True':
         filename = stl_file_name[0:len(stl_file_name)-4]
@@ -500,16 +555,41 @@ def Slice():
         file_num = 0
         for i in dirList:
             if (filename in i) and ('png' in i):
-                 file_num = file_num + 1
+                file_num = file_num + 1
         
         idx_file = open(filename+".idx", 'w')
-        idx_file.write("NVP Index file\n")
+        idx_file.write("*** NVP Index file ***\n")
         idx_file.write("Prefix "+filename+"\n")
         idx_file.write("Ext png \n")
-        idx_file.write("Start 2000\n")
-        idx_file.write("End "+str(2000+file_num-1)+"\n")
+#        if AddBase:
+#            idx_file.write("End "+str(2000+file_num-1+BaseLayers)+"\n")
+#        else:
+#            idx_file.write("End "+str(2000+file_num-1)+"\n")
+
+        idx_file.write("Model_Start 2000"+"\n")
+        idx_file.write("Model_End "+str(2000+file_num-1-BaseLayers)+"\n") #new add
+        idx_file.write("Base_Start "+str(2000-BaseLayers)+"\n")
         idx_file.close()
-                    
+
+        image_base = Image.new("RGB",(768,480))
+        draw_base = ImageDraw.Draw(image_base)
+        draw_base.rectangle([1,1,766,478], fill=(255,255,255))
+    
+#    if AddBase == True:
+#        modelFirstLayerFileName = stl_file_name[0:len(stl_file_name)-4]+str(2000+BaseLayers).zfill(4)+".png"
+#        supportIm = addSupportLayer(modelFirstLayerFileName, 4, 8)
+#        midBaseLayers = BaseLayers / 2
+#        for i in range(midBaseLayers):
+#            OutSVGFileName = stl_file_name[0:len(stl_file_name)-4]+str(2000+i).zfill(4)+".png"
+#            print ("copy "+CWD+"\\base.png "+OutSVGFileName) 
+#            os.system("copy "+CWD+"\\base.png "+OutSVGFileName)
+#        for i in range(midBaseLayers, BaseLayers):
+#            OutSVGFileName = stl_file_name[0:len(stl_file_name)-4]+str(2000+i).zfill(4)+".png"
+#            supportIm.save(OutSVGFileName)
+        for i in range(BaseLayers):
+            OutSVGFileName = stl_file_name[0:len(stl_file_name)-4]+str(2000+i-BaseLayers).zfill(4)+".png"
+            image_base.save(OutSVGFileName)
+                          
     # Change back to Current Working Directory
     os.chdir(CWD)
     
@@ -590,15 +670,35 @@ def load_last_stl():
                 
     return     
 
+#def addSupportLayer(maskLayerFilename, radius, distance):
+#    maskIm = Image.open(maskLayerFilename)
+#    maskIm = maskIm.convert('1')
+#    im = Image.new('RGBA', maskIm.size, (0, 0, 0, 255))
+#    draw = ImageDraw.Draw(im)
+#    (width, height) = maskIm.size
+#    p2pDistance = 2 * radius + distance
+#    width /= p2pDistance
+#    height /= p2pDistance
+#    for h in range(height):
+#        for w in range(width):
+#            draw.ellipse((w*p2pDistance, h*p2pDistance, w*p2pDistance + 2*radius, h*p2pDistance + 2*radius), fill=(255, 255, 255))
+#    del draw
+#    im = Image.composite(im, maskIm, maskIm) 
+#    return im
+
+
 #=== Main Starts
 
 # Global Variables
 global STLFileName, StatusStr
 global carve_csvFile
+global AddBase, BaseLayers
 global root
 root = Tk()
 root.title("MiiCraft Slice " + VER)  
 
+AddBase = True
+BaseLayers = 4
 
 SVGHeader = """<?xml version="1.0" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
@@ -614,8 +714,8 @@ YScale                  = 1.0
 ZScale                  = 1.0
 PixelPerMillimeter_X    = 17.68
 PixelPerMillimeter_Y    = 17.64
-UniformityCorrect       = 'True'
-UniformityCorrectFile   = "CorrectRGB_MASK.png"
+#UniformityCorrect       = 'True'
+#UniformityCorrectFile   = "CorrectRGB_MASK.png"
 DelSVG                  = 'True'
 GenIdx                  = 'True'
 
@@ -634,7 +734,7 @@ from skeinforge import *
 if DebugMessage:
     print carve_csvFile
     print XScale, YScale, ZScale, PixelPerMillimeter_X, PixelPerMillimeter_Y
-    print UniformityCorrect, UniformityCorrectFile
+#    print UniformityCorrect, UniformityCorrectFile
 
 STLFileName ='NOVALID'
 STLFileNameStr.set          ("  No STL file Selected")

@@ -4,13 +4,14 @@ It will be organized and cleaned in the future release
 '''
 
 from __future__ import absolute_import
-VER = "v0.4"
+VER = "v0.5"
 '''
  MiiCraft Printer Control Program
  v0.1    2012-May-4th  [P.K.] Initial version
  v0.2    2012-May-31th [T.W.] Improve performance
  v0.3    2012-Aug-15th [T.W.] solve fill resin funtion bug
  v0.4    2012-Sep-21th [T.W.] Auto setup the USB display location, add tank clean function
+ V0.5    2012-Oct-2nd  [T.W.] Auto form base function
 
     Part of the MiiCraft project
     Copyright (C) 2012  Thomas Wu, Paul Kang, Young Optics
@@ -46,7 +47,7 @@ from serial_emu import *
 
 class CmdDialog:
     def __init__(self, parent, VariableName, Message):
-        global ResinCuringTime, SerialTimeOut, PostCuringTime
+        global ResinCuringTime, SerialTimeOut, PostCuringTime, FormBase
 
         top = self.top = Toplevel(parent)
 
@@ -59,7 +60,7 @@ class CmdDialog:
         b.pack(pady=5)
 
     def ok(self, VariableName):
-        global root, ResinCuringTime, SerialTimeOut, PostCuringTime
+        global root, ResinCuringTime, SerialTimeOut, PostCuringTime, FormBase
         inputText = self.e.get()
         self.top.destroy()  
         if VariableName=="Test":
@@ -76,17 +77,17 @@ class CmdDialog:
             print "CmdDialog ResinCuringTime=", ResinCuringTime
             return        
 
+        if VariableName=="PostCuringTime":                           
+            PostCuringTime = float(cmd[0])
+            ConfigBtn.menu.entryconfig(2, label='PostCuringTime :       '+str(PostCuringTime))
+            PostCuringBtn.menu.entryconfig(1, label='Post Curing by '+str(PostCuringTime)+' seconds')
+            print "CmdDialog PostCuringTime=", PostCuringTime
+            return
+
         if VariableName=="SerialTimeOut":                           
             SerialTimeOut = int(cmd[0])
             ConfigBtn.menu.entryconfig(3, label='SerialTimeOut :          '+str(SerialTimeOut))
             print "CmdDialog SerialTimeOut=", SerialTimeOut
-            return
-
-        if VariableName=="PostCuringTime":                           
-            PostCuringTime = float(cmd[0])
-            ConfigBtn.menu.entryconfig(3, label='PostCuringTime :       '+str(PostCuringTime))
-            PostCuringBtn.menu.entryconfig(1, label='Post Curing by '+str(PostCuringTime)+' seconds')
-            print "CmdDialog PostCuringTime=", PostCuringTime
             return
 
         if VariableName=="cleanprocess":
@@ -95,10 +96,17 @@ class CmdDialog:
             else:
                 print "N"
             return
+
+        if VariableName=="FormBase_t":
+            if ((cmd[0]=="y")|(cmd[0]=="Y")):
+                FormBase = True
+            else:
+                FormBase = False
+            print "CmdDialog AutoFormBase=", FormBase
+            ConfigBtn.menu.entryconfig(4, label='Auto Form Base :       '+str(FormBase))
+            return
          
-        return 
-
-
+        return
 
 ###### Menu Commands
 
@@ -111,25 +119,31 @@ def my_quit():
 def OpenFile():
     global NVPConnected, VaildIdxLoaded
     global dirname, prefixname, extname, startname, endname
+    global ini_start_num, ini_end_num, ini_base_start
     global start_num, end_num, total_num
+    global FormBase
+    
     newfilename = askopenfilename()
     indexFile = open(newfilename)
-    head   = indexFile.readline()
-    if 'NVP Index file' in head:
+    head = indexFile.readline()
+    if '*** NVP Index file ***' in head:
         prefix     = indexFile.readline().split()
         ext        = indexFile.readline().split()
-        num_start  = indexFile.readline().split()
+        num_start  = indexFile.readline().split()        
         num_end    = indexFile.readline().split()
-        num_total  = indexFile.readline().split()
+        base_start = indexFile.readline().split()
         dirname    = os.path.dirname(newfilename)
         prefixname = prefix[1]
         extname    = ext[1]
-        startname  = num_start[1]
+        ini_startname  = num_start[1]
         endname    = num_end[1]
+        base_startname = base_start[1]
 
-        start_num = int(startname)
-        end_num   = int(endname)
-        total_num = end_num - start_num +1
+        ini_start_num = int(ini_startname)
+        ini_end_num   = int(endname)
+        ini_base_start = int(base_startname)
+
+        LayerCalculation()
 
         print "OpenFile ", start_num, end_num, total_num
         CurrentDir.set("Directory :  "+ dirname)
@@ -148,6 +162,27 @@ def OpenFile():
         VaildIdxLoaded = True
         if NVPConnected:
             EnableInitControlBtns()
+    return
+
+def LayerCalculation():
+    global startname
+    global ini_start_num, ini_end_num, ini_base_start
+    global start_num, end_num, total_num
+    global FormBase
+    
+    if FormBase == True:
+        start_num = ini_base_start
+        end_num = ini_end_num
+    else:
+        start_num = ini_start_num
+        end_num = ini_end_num
+    
+    total_num = end_num - start_num+1
+    startname = str(start_num)
+
+    return
+    
+    
             
         
 ########## End Of File Commands
@@ -916,6 +951,15 @@ def ResinCuringTimeDialog():
     d = CmdDialog(root, "ResinCuringTime", "Input ' Single' layer Resin Curing Time")
     root.wait_window(d.top)
 
+def AutoFormBaseDialog():
+    global root, FormBase
+    if FormBase == True:
+        formstate = '-YES-'
+    else:
+        formstate = '-NO-'
+    d = CmdDialog(root, "FormBase_t", "Auto Form Base for printing( Y / N )"+"\n"+"\n"+"Current state is "+formstate+" "+"\n"+"\n"+"Note! Please reload the index file after the change.")
+    root.wait_window(d.top)   
+
 def SerialTimeOutDialog():
     global root
     d = CmdDialog(root, "SerialTimeOut", "Input Serial Time Out")
@@ -928,12 +972,12 @@ def PostCuringTimeDialog():
 
 def clean_processDialog():
     global root
-    d = CmdDialog(root, "cleanprocess", "Start Tank clean process.( Y / N )")
+    d = CmdDialog(root, "cleanprocess", "Start Tank clean process( Y / N )")
     root.wait_window(d.top)
   
     
 def ReadIni():
-    global ResinCuringTime, SerialTimeOut, PostCuringTime, root
+    global ResinCuringTime, SerialTimeOut, PostCuringTime, FormBase, root
     try:
         f_ini = open("MiiCraftSuite.ini","r")
         readLines = f_ini.readlines()
@@ -944,11 +988,19 @@ def ReadIni():
                 continue
             if 'SerialTimeOut' in i:
                 parameters = i.split()
-                SerialTimeOut = int(parameters[1])            
+                SerialTimeOut = int(parameters[1])
+                continue
+            if 'AutoFormBase' in i:
+                parameters = i.split()
+                FormBase_text = parameters[1]
+                if FormBase_text == 'True':
+                    FormBase = True
+                else:
+                    FormBase = False
                 continue
             if 'PostCuringTime' in i:
                 parameters = i.split()
-                PostCuringTime = float(parameters[1])            
+                PostCuringTime = float(parameters[1])
                 continue              
         f_ini.close()
     except IOError, e:
@@ -1058,6 +1110,8 @@ def clean_process():
     DisableAllControlBtns()
 
     FillResin()
+    RedrawResin()
+    RedrawResin()
     if state == 'R':
         BtnInit.config(state=NORMAL)
         Initiate_updown.set("Continue")
@@ -1094,7 +1148,6 @@ def clean_process():
             StatusText.set("Curing complete in "+str(int(25*curing_cycle-25*(i+1)+(6-clean_time)))+" seconds")
             root.update()        
     
-    RedrawResin()
     StatusText.set("Clean Process Done!")
 
     DisableAllControlBtns()
@@ -1104,11 +1157,12 @@ def clean_process():
     
 
 global ser, SerialTimeOut
-global ResinCuringTime, USBDisplayStartX, PostCuringTime
+global ResinCuringTime, USBDisplayStartX, PostCuringTime, FormBase
 # defaults
 ResinCuringTime  = 5     # 5 seconds
 PostCuringTime   = 10
 SerialTimeOut    = 1
+FormBase         = False
     
 global dirpathname, prefixname, extname, startname, endname
 global start_num, end_num, total_num
@@ -1155,8 +1209,9 @@ panel.pack(side='top', fill='both', expand='yes')
 
 print "ResinCuringTime:",  ResinCuringTime
 print "USBDisplayStartX:", USBDisplayStartX
-print "SerialTimeOut",     SerialTimeOut
-print "PostCuringTime",    PostCuringTime
+print "SerialTimeOut:",    SerialTimeOut
+print "PostCuringTime:",   PostCuringTime
+print "AutoFormBase:",     FormBase
 
 
 PreviewName    = StringVar()
@@ -1217,6 +1272,8 @@ ConfigBtn.menu = Menu(ConfigBtn)
 ConfigBtn.menu.add_command(label='Resin Curing Time :   '+str(ResinCuringTime),  command = ResinCuringTimeDialog)
 ConfigBtn.menu.add_command(label='Post Curing Time :     '+str(PostCuringTime), command = PostCuringTimeDialog)
 ConfigBtn.menu.add_command(label='SerialTimeOut :          '+str(SerialTimeOut), command = SerialTimeOutDialog)
+ConfigBtn.menu.add_command(label='Auto Form Base :       '+str(FormBase), command = AutoFormBaseDialog)
+
 ConfigBtn['menu'] = ConfigBtn.menu
 
 ResinBtn = Menubutton(mBar, text='Resin')
