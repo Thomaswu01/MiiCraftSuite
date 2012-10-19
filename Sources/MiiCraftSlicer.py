@@ -478,7 +478,7 @@ def Slice():
 #        else:  
 #            OutSVGFileName = stl_file_name[0:len(stl_file_name)-4]+str(2000+i).zfill(4)+".svg"
       
-        OutSVGFileName = stl_file_name[0:len(stl_file_name)-4]+str(2000+i-BaseLayers).zfill(4)+".svg"  #new add
+        OutSVGFileName = stl_file_name[0:len(stl_file_name)-4]+str(2000+i).zfill(4)+".svg"  #new add
         
         StatusStr.set('  Generating '+OutSVGFileName)
         root.update()
@@ -561,34 +561,36 @@ def Slice():
         idx_file.write("*** NVP Index file ***\n")
         idx_file.write("Prefix "+filename+"\n")
         idx_file.write("Ext png \n")
-#        if AddBase:
-#            idx_file.write("End "+str(2000+file_num-1+BaseLayers)+"\n")
-#        else:
-#            idx_file.write("End "+str(2000+file_num-1)+"\n")
 
         idx_file.write("Model_Start 2000"+"\n")
-        idx_file.write("Model_End "+str(2000+file_num-1-BaseLayers)+"\n") #new add
-        idx_file.write("Base_Start "+str(2000-BaseLayers)+"\n")
+        idx_file.write("Model_End "+str(2000+file_num-1)+"\n") #new add
+        idx_file.write("Base_Start "+str(2000-BaseLayers-SupportLaters)+"\n")
         idx_file.close()
 
         image_base = Image.new("RGB",(768,480))
         draw_base = ImageDraw.Draw(image_base)
         draw_base.rectangle([1,1,766,478], fill=(255,255,255))
-    
-#    if AddBase == True:
-#        modelFirstLayerFileName = stl_file_name[0:len(stl_file_name)-4]+str(2000+BaseLayers).zfill(4)+".png"
-#        supportIm = addSupportLayer(modelFirstLayerFileName, 4, 8)
-#        midBaseLayers = BaseLayers / 2
-#        for i in range(midBaseLayers):
-#            OutSVGFileName = stl_file_name[0:len(stl_file_name)-4]+str(2000+i).zfill(4)+".png"
-#            print ("copy "+CWD+"\\base.png "+OutSVGFileName) 
-#            os.system("copy "+CWD+"\\base.png "+OutSVGFileName)
-#        for i in range(midBaseLayers, BaseLayers):
-#            OutSVGFileName = stl_file_name[0:len(stl_file_name)-4]+str(2000+i).zfill(4)+".png"
-#            supportIm.save(OutSVGFileName)
-        for i in range(BaseLayers):
-            OutSVGFileName = stl_file_name[0:len(stl_file_name)-4]+str(2000+i-BaseLayers).zfill(4)+".png"
-            image_base.save(OutSVGFileName)
+        draw_base.rectangle([1,1,21,21], fill=(0,0,0))
+        draw_base.rectangle([1,458,21,478], fill=(0,0,0))
+        draw_base.rectangle([746,1,766,21], fill=(0,0,0))
+        draw_base.rectangle([746,458,766,478], fill=(0,0,0))
+        draw_base.ellipse((1,1,41,41), fill=(255,255,255))
+        draw_base.ellipse((1,438,41,478), fill=(255,255,255))
+        draw_base.ellipse((726,1,766,41), fill=(255,255,255))
+        draw_base.ellipse((726,438,766,478), fill=(255,255,255))
+
+
+        modelFirstLayerFileName = stl_file_name[0:len(stl_file_name)-4]+"2000.png"
+#        modelFirstLayerFileName = "test0001.png"  #Debug
+        supportIm = addSupportLayer(modelFirstLayerFileName, 6, 15)
+
+        for i in range(BaseLayers+SupportLaters):
+            OutSVGFileName = stl_file_name[0:len(stl_file_name)-4]+str(2000+i-BaseLayers-SupportLaters).zfill(4)+".png"
+            if i < BaseLayers:
+                image_base.save(OutSVGFileName)
+            else:
+                supportIm.save(OutSVGFileName)
+
                           
     # Change back to Current Working Directory
     os.chdir(CWD)
@@ -668,23 +670,70 @@ def load_last_stl():
                     
                 BtnSlice.config(state=NORMAL)
                 
-    return     
+    return
 
-#def addSupportLayer(maskLayerFilename, radius, distance):
-#    maskIm = Image.open(maskLayerFilename)
-#    maskIm = maskIm.convert('1')
-#    im = Image.new('RGBA', maskIm.size, (0, 0, 0, 255))
-#    draw = ImageDraw.Draw(im)
-#    (width, height) = maskIm.size
-#    p2pDistance = 2 * radius + distance
-#    width /= p2pDistance
-#    height /= p2pDistance
-#    for h in range(height):
-#        for w in range(width):
-#            draw.ellipse((w*p2pDistance, h*p2pDistance, w*p2pDistance + 2*radius, h*p2pDistance + 2*radius), fill=(255, 255, 255))
-#    del draw
-#    im = Image.composite(im, maskIm, maskIm) 
-#    return im
+def getPixelValue(pixels, size, position):
+    if position[0] >= size[0] or position[1] >= size[1]:
+        return 0
+    else:
+        return pixels[position[1] * size[0] + position[0]]
+
+def addSupportLayer(baseLayerFilename, radius, distance):
+    baseIm = Image.open(baseLayerFilename)
+    baseIm = baseIm.convert('L') # convert to 8-bits gray
+    im = Image.new('L', baseIm.size, (0))
+    draw = ImageDraw.Draw(im)
+    c2c = radius * 2 + distance # maximum distance between the core of rect
+    rate = c2c # thumbnail layer2 / thumbnail layer1
+    th = 512 / c2c # use threshold to reduce noise
+    
+    # Create the thumbnail to define where is the best position of support
+    # Thumbnail layer1
+    w1, h1 = baseIm.size
+    w1Shift = w1 % c2c
+    h1Shift = h1 % c2c
+    w1 = w1 / c2c
+    h1 = h1 / c2c
+    thumbnail1 = baseIm.resize((w1, h1), Image.ANTIALIAS)
+    thumbnail1Pixels = list(thumbnail1.getdata())
+    # Thumbnail layer2
+    w2 = w1 * rate
+    h2 = h1 * rate
+    thumbnail2 = baseIm.resize((w2, h2), Image.ANTIALIAS)
+    thumbnail2Pixels = list(thumbnail2.getdata())
+    
+    # Thumbnail layer1 define the initial position of support
+    for i in range(len(thumbnail1Pixels)):
+        w = i % w1
+        h = i / w1
+        # draw.rectangle((w * rate + w * w1Shift / w1, h * rate + h * h1Shift / h1, w * rate + w * w1Shift / w1, h * rate + h * h1Shift / h1), fill="white") # DEBUG
+        if thumbnail1Pixels[i] > 0:
+            # Search best position in Thumbnail layer2
+            # The best position is the center of mass
+            bestPosition = (w * rate, h * rate)
+            dp = (0, 0)
+            num = 0
+            for dw in range (rate):
+                for dh in range(rate):
+                    newPosition = (bestPosition[0] + dw,  bestPosition[1] + dh)
+                    if getPixelValue(thumbnail2Pixels, (w2, h2), newPosition) > th:
+                        dp = (dp[0] + dw, dp[1] + dh)
+                        num += 1
+            if num == 0:
+                continue
+            bestPosition = (bestPosition[0] + dp[0] / num, bestPosition[1] + dp[1] / num)
+            bestPosition = (
+                            bestPosition[0] * c2c / rate + w1Shift * bestPosition[0] / w2,
+                            bestPosition[1] * c2c / rate + h1Shift * bestPosition[1] / h2)
+            # Paint support
+            if c2c & 0x01:
+                draw.ellipse((bestPosition[0] - radius, bestPosition[1] - radius,
+                                 bestPosition[0] + radius, bestPosition[1] + radius), fill="white")
+            else:
+                draw.ellipse((bestPosition[0] - radius, bestPosition[1] - radius,
+                                 bestPosition[0] + radius - 1 , bestPosition[1] + radius -1), fill="white")
+    # im = Image.blend(baseIm, im, 0.8) # DEBUG
+    return im
 
 
 #=== Main Starts
@@ -692,13 +741,15 @@ def load_last_stl():
 # Global Variables
 global STLFileName, StatusStr
 global carve_csvFile
-global AddBase, BaseLayers
+global AddBase, BaseLayers, SupportLaters
 global root
 root = Tk()
 root.title("MiiCraft Slice " + VER)  
 
 AddBase = True
-BaseLayers = 4
+BaseLayers = 5
+SupportLaters = 5
+
 
 SVGHeader = """<?xml version="1.0" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"

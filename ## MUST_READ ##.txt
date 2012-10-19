@@ -1,0 +1,6 @@
+0. Do not connect to 3D printer
+1. Install Python-2.6.6
+2. Install TriggerDriver (Must restart PC)
+3. Connect to 3D printer and Turn on
+4. Install Arduino_driver
+5. Install Setup

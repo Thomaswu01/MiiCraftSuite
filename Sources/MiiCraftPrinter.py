@@ -473,7 +473,7 @@ def build_a_layer(layer_num):
     
     global dirpathname, prefixname, extname, startname, endname
     global start_num, end_num, total_num, PrintPause, state
-    global CountTimesR, ResinCuringTime, TimeMovelayer, TimeRemain
+    global ResinCuringTime, TimeMovelayer
 
     if PrintPause:
         StatusText.set("Print will be Paused after finishing current layer ("+str(layer_num+1)+") ...")
@@ -485,7 +485,6 @@ def build_a_layer(layer_num):
     ResinBtn.menu.entryconfig(1, state=DISABLED)
     ResinBtn.menu.entryconfig(2, state=DISABLED)
     PostCuringBtn.menu.entryconfig(1, state=DISABLED)
-
 
     # show preview
     layername = str(layer_num+start_num)
@@ -513,12 +512,9 @@ def build_a_layer(layer_num):
     PreviewName.set("Preview Images - "+prefixname+layername+"."+extname)
     root.update()
 
-
-    # Delay for resin curing
     USBShow(image_tk)
 
     # Fill resin
-
     BtnPause.config(state=DISABLED)
     FillResin()
     if state == 'R':
@@ -526,8 +522,7 @@ def build_a_layer(layer_num):
         Initiate_updown.set("Continue")
         root.update()
         while state == 'R':
-            root.update()
-    
+            root.update()    
     
     BtnPause.config(state=NORMAL)
 
@@ -536,7 +531,7 @@ def build_a_layer(layer_num):
         TimeMovelayer_up = time.time()
         send_a_cmd(MoveAlayer, MoveAlayerMsg)
         TimeMovelayer_down = time.time()
-        TimeMovelayer = (TimeMovelayer_down-TimeMovelayer_up)
+        TimeMovelayer = TimeMovelayer_down-TimeMovelayer_up
         print "TimeMovelayer = "+str(TimeMovelayer)
         ResinBtn.menu.entryconfig(1, state=DISABLED)
         ResinBtn.menu.entryconfig(2, state=DISABLED)
@@ -544,16 +539,12 @@ def build_a_layer(layer_num):
 
     if layer_num ==0:
         print "wait a moment for section image initiate ..."
-        CountTimesR = int(ResinCuringTime/0.1)
-#        for i in range(CountTimesR):
         for i in range(20):
             root.update()
             if PrintPause:
                 StatusText.set("Print will be Paused after finishing current layer ("+str(layer_num+1)+") ...")
                 root.update()
             time.sleep(0.1)
-
-        print "Count Times:"+str(CountTimesR)
         
     # wait resin stable
     time.sleep(0.4)
@@ -566,39 +557,35 @@ def build_a_layer(layer_num):
     ResinBtn.menu.entryconfig(2, state=DISABLED)
     PostCuringBtn.menu.entryconfig(1, state=DISABLED)  
 
-    if layer_num <3:
-        for i in range(CountTimesR*5):
-            root.update()
-            if PrintPause:
-                StatusText.set("Print will be Paused after finishing current layer ("+str(layer_num+1)+") ...")
-                root.update()
-            time.sleep(0.1)
-
-    if ((layer_num == 3) | (layer_num == 4)):
-        for i in range(CountTimesR*2):
-            root.update()
-            if PrintPause:
-                StatusText.set("Print will be Paused after finishing current layer ("+str(layer_num+1)+") ...")
-                root.update()
-            time.sleep(0.1)
-            
-        
     # Using the loop instead of time.sleep(ResinCuringTime) to improve the response of the GUI
+    if layer_num <2:
+        timestart = time.time()
+        timeend = time.time()
+        CuringTimePass = timeend - timestart
+        while CuringTimePass < (ResinCuringTime*2):
+            root.update()
+            if PrintPause:
+                StatusText.set("Print will be Paused after finishing current layer ("+str(layer_num+1)+") ...")
+                root.update()
+            time.sleep(0.1)
+            timeend = time.time()
+            CuringTimePass = timeend - timestart
+                            
     timestart = time.time()
-    for i in range(CountTimesR):
+    timeend = time.time()
+    CuringTimePass = timeend - timestart
+    
+    while CuringTimePass < ResinCuringTime:
         root.update()
         if PrintPause:
             StatusText.set("Print will be Paused after finishing current layer ("+str(layer_num+1)+") ...")
             root.update()
         time.sleep(0.1)
-    timeend = time.time()
-    elapsed = timeend - timestart
-    if (elapsed - ResinCuringTime)>0.1 :        
-        CountTimesR=CountTimesR+int((ResinCuringTime-elapsed)/0.1)
-    if elapsed < ResinCuringTime:
-        CountTimesR=CountTimesR+int((ResinCuringTime-elapsed)/0.1)+1
+        timeend = time.time()
+        CuringTimePass = timeend - timestart
         
-    print "Real %.3f second Curing" % (elapsed)
+    
+    print "Real"+str(CuringTimePass)+"second Curing"
    
     # turn off light engine Light-- to be implemented
     send_a_cmd(LEOff, LEOffMsg)
@@ -634,9 +621,6 @@ def build_a_layer(layer_num):
             TimeRemainText.set(": Left "+str(TimeRemain_min)+" minutes")
         else :
             TimeRemainText.set(": Less than 1 minute")
-
-    # wait resin stable
-    time.sleep(0.1)
 
     return True
    
@@ -1293,7 +1277,7 @@ PostCuringBtn.menu.add_command(label='Post Curing by '+str(PostCuringTime)+' sec
 PostCuringBtn['menu'] = PostCuringBtn.menu
 PostCuringBtn.menu.entryconfig(1, state=DISABLED)
 
-TestBtn = Menubutton(mBar, text='Test')
+TestBtn = Menubutton(mBar, text='Other')
 TestBtn.pack(side=LEFT, padx="2m")
 TestBtn.menu = Menu(TestBtn)
 TestBtn.menu.add_command(label='Test a command',   command=testDialog)
